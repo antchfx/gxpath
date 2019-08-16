@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"unicode"
+	"unicode/utf8"
 )
 
 // A XPath expression token type.
@@ -329,6 +330,7 @@ func (p *parser) parsePathExpr(n node) node {
 		}
 	} else {
 		opnd = p.parseLocationPath(nil)
+
 	}
 	return opnd
 }
@@ -363,6 +365,7 @@ func (p *parser) parseLocationPath(n node) (opnd node) {
 		p.next()
 		opnd = newRootNode("//")
 		opnd = p.parseRelativeLocationPath(newAxisNode("descendant-or-self", "", "", "", opnd))
+
 	default:
 		opnd = p.parseRelativeLocationPath(n)
 	}
@@ -649,8 +652,9 @@ func (s *scanner) nextChar() bool {
 		s.curr = rune(0)
 		return false
 	}
-	s.curr = rune(s.text[s.pos])
-	s.pos++
+	size := 0
+	s.curr, size = utf8.DecodeRuneInString(s.text[s.pos:])
+	s.pos += size
 	return true
 }
 
@@ -770,7 +774,7 @@ func (s *scanner) scanFraction() float64 {
 	)
 	for isDigit(s.curr) {
 		s.nextChar()
-		c++
+		c += utf8.RuneLen(s.curr)
 	}
 	v, err := strconv.ParseFloat(s.text[i:i+c], 64)
 	if err != nil {
@@ -786,14 +790,14 @@ func (s *scanner) scanNumber() float64 {
 	)
 	for isDigit(s.curr) {
 		s.nextChar()
-		c++
+		c += utf8.RuneLen(s.curr)
 	}
 	if s.curr == '.' {
 		s.nextChar()
-		c++
+		c += utf8.RuneLen(s.curr)
 		for isDigit(s.curr) {
 			s.nextChar()
-			c++
+			c += utf8.RuneLen(s.curr)
 		}
 	}
 	v, err := strconv.ParseFloat(s.text[i:i+c], 64)
@@ -814,7 +818,7 @@ func (s *scanner) scanString() string {
 		if !s.nextChar() {
 			panic(errors.New("xpath: scanString got unclosed string"))
 		}
-		c++
+		c += utf8.RuneLen(s.curr)
 	}
 	s.nextChar()
 	return s.text[i : i+c]
@@ -826,7 +830,7 @@ func (s *scanner) scanName() string {
 		i = s.pos - 1
 	)
 	for isName(s.curr) {
-		c++
+		c += utf8.RuneLen(s.curr)
 		if !s.nextChar() {
 			break
 		}
